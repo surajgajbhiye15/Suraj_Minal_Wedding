@@ -397,8 +397,8 @@
         <a href="#closing" class="px-2 py-1 text-[10px] sm:text-xs font-cinzel tracking-[0.16em] uppercase text-beige hover:text-gold transition-colors whitespace-nowrap hidden md:inline">Blessings</a>
       </nav>
 
-      <!-- Ambient Royal Chimes Audio Toggle -->
-      <button id="ambient-sound-btn" type="button" aria-label="Toggle Royal Ambient Music" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-gold/50 bg-burgundy/80 hover:bg-burgundy text-gold-light text-[10px] tracking-[0.15em] uppercase transition-all shrink-0">
+      <!-- Kehne Ko Jashn-e-Bahara Hai Instrumental Audio Toggle -->
+      <button id="ambient-sound-btn" type="button" aria-label="Toggle Kehne Ko Jashn-e-Bahara Hai Instrumental" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-gold/50 bg-burgundy/80 hover:bg-burgundy text-gold-light text-[10px] tracking-[0.15em] uppercase transition-all shrink-0">
         <svg id="sound-icon-off" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M11 5L6 9H2v6h4l5 4V5z"/>
           <line x1="23" y1="9" x2="17" y2="15"/>
@@ -409,7 +409,7 @@
           <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
           <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
         </svg>
-        <span id="sound-status-label" class="hidden sm:inline font-cinzel">Chimes Off</span>
+        <span id="sound-status-label" class="hidden sm:inline font-cinzel">Music Off</span>
       </button>
     </div>
   </header>
@@ -1072,7 +1072,7 @@
             </div>
 
             <!-- Tab Panel 1: Location & Address -->
-            <div id="dest-panel-location" class="dest-panel grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+            <div id="dest-panel-location" class="dest-panel grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto text-center">
               <div class="p-5 bg-black/30 border border-gold/30 rounded-sm">
                 <p class="font-cinzel text-xs tracking-[0.2em] text-gold uppercase mb-2">Venue Address</p>
                 <p class="font-serif text-lg text-ivory font-semibold mb-1">Wild Woods Tiger Resort</p>
@@ -1090,7 +1090,7 @@
             </div>
 
             <!-- Tab Panel 2: How to Reach -->
-            <div id="dest-panel-travel" class="dest-panel hidden grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+            <div id="dest-panel-travel" class="dest-panel hidden grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto text-center">
               <div class="p-5 bg-black/30 border border-gold/30 rounded-sm">
                 <p class="font-cinzel text-xs tracking-[0.2em] text-gold uppercase mb-2">By Air</p>
                 <p class="font-serif text-lg text-ivory font-semibold mb-1">Nagpur International Airport (NAG)</p>
@@ -1115,7 +1115,7 @@
             </div>
 
             <!-- Tab Panel 3: Resort & Weather -->
-            <div id="dest-panel-sanctuary" class="dest-panel hidden grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+            <div id="dest-panel-sanctuary" class="dest-panel hidden grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto text-center">
               <div class="p-5 bg-black/30 border border-gold/30 rounded-sm">
                 <p class="font-cinzel text-xs tracking-[0.2em] text-gold uppercase mb-2">January Forest Climate</p>
                 <p class="font-serif text-lg text-ivory font-semibold mb-1">Crisp &amp; Golden Winter</p>
@@ -1247,53 +1247,177 @@
   <!-- ===================================================================== -->
   <script>
     (function () {
-      // 1. Web Audio API Synthesized Royal Ambient Chimes (Zero external audio files needed)
+      // 1. Web Audio API Instrumental: "Kehne Ko Jashn-e-Bahara Hai" (A Major, Jodhaa Akbar)
       let audioCtx = null;
       let soundEnabled = false;
-      let chimeInterval = null;
+      let melodyTimer = null;
+      let activeNodes = [];
+      let loopGeneration = 0;
 
       const soundBtn = document.getElementById('ambient-sound-btn');
       const soundIconOff = document.getElementById('sound-icon-off');
       const soundIconOn = document.getElementById('sound-icon-on');
       const soundStatusLabel = document.getElementById('sound-status-label');
 
-      // Gentle pentatonic royal harp/chime notes (Hz)
-      const royalNotes = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25];
+      const NOTE_FREQ = {
+        'A2': 110.00, 'E3': 164.81, 'F#3': 185.00, 'G#3': 207.65,
+        'A3': 220.00, 'B3': 246.94, 'C#4': 277.18, 'D4': 293.66,
+        'E4': 329.63, 'F#4': 369.99, 'G#4': 415.30, 'A4': 440.00,
+        'B4': 493.88, 'C#5': 554.37, 'D5': 587.33, 'E5': 659.25
+      };
 
-      function playGentleChime(freq, delaySec, durationSec) {
+      // Melody of "Kehne Ko Jashn-e-Bahara Hai" [note, duration in beats] at ~96 BPM (1 beat = 0.625s)
+      const BEAT = 0.48;
+      const jashnMelody = [
+        // Kehne ko Jashn-e-bahara hai
+        ['A4', 0.75], ['C#5', 0.75], ['B4', 0.5], ['C#5', 0.75], ['B4', 0.5], ['A4', 0.75], ['A4', 0.5], ['A4', 0.5], ['A4', 1.0], ['B4', 1.0],
+        // Ishq yeh dekhke hairaan hai
+        ['A4', 0.75], ['C#5', 0.75], ['B4', 0.5], ['C#5', 0.75], ['B4', 0.5], ['A4', 0.75], ['A4', 0.5], ['A4', 0.5], ['A4', 1.0], ['F#4', 1.25],
+        // Phool se khusboo khafa khafa hai gulshan mein
+        ['F#4', 0.5], ['A4', 0.75], ['A4', 0.5], ['B4', 0.75], ['B4', 0.5], ['B4', 0.5], ['A4', 0.75],
+        ['F#4', 0.5], ['A4', 0.75], ['A4', 0.5], ['B4', 0.5], ['B4', 0.5], ['C#5', 0.5], ['B4', 0.5], ['A4', 0.5], ['F#4', 0.5], ['E4', 0.75], ['E4', 1.25],
+        // Chupa hai koi ranj fiza ki chilman mein
+        ['F#4', 0.5], ['A4', 0.75], ['A4', 0.5], ['B4', 0.75], ['B4', 0.5], ['B4', 0.5], ['A4', 0.75],
+        ['F#4', 0.5], ['A4', 0.75], ['A4', 0.5], ['B4', 0.5], ['B4', 0.5], ['C#5', 0.5], ['B4', 0.5], ['A4', 0.5], ['F#4', 0.5], ['E4', 0.75], ['E4', 1.25],
+        // Sare sehmein nazare hain, soye soye waqt ke dhare hain
+        ['G#4', 0.75], ['G#4', 0.5], ['F#4', 0.5], ['E4', 0.5], ['E4', 0.5], ['E4', 1.0],
+        ['E4', 0.5], ['F#4', 0.5], ['F#4', 0.5], ['B4', 0.75], ['A4', 0.5], ['G#4', 0.5], ['F#4', 0.5], ['E4', 0.5], ['E4', 0.5], ['E4', 0.5], ['D4', 0.5], ['C#4', 1.25],
+        // Aur dil mein koi khoye si baatein hain
+        ['C#4', 0.5], ['D4', 0.5], ['E4', 0.5], ['E4', 0.5], ['E4', 0.75], ['F#4', 0.5], ['F#4', 0.5], ['A4', 0.75], ['G#4', 0.5], ['B4', 0.75], ['A4', 0.5], ['F#4', 0.5], ['F#4', 0.5], ['E4', 0.75], ['E4', 1.5]
+      ];
+
+      // Gentle chord progression in A major (A -> F#m -> D -> E)
+      const chordProg = [
+        ['A3', 'C#4', 'E4'],
+        ['F#3', 'A3', 'C#4'],
+        ['D4', 'F#4', 'A4'],
+        ['E4', 'G#4', 'B4']
+      ];
+
+      function stopAllAudioNodes() {
+        activeNodes.forEach(function (node) {
+          try { node.stop(); } catch (e) {}
+          try { node.disconnect(); } catch (e) {}
+        });
+        activeNodes = [];
+      }
+
+      function playFluteNote(freq, startTime, durationSec) {
         if (!audioCtx || !soundEnabled) return;
         try {
-          const now = audioCtx.currentTime + delaySec;
-          const osc = audioCtx.createOscillator();
+          const osc1 = audioCtx.createOscillator();
+          const osc2 = audioCtx.createOscillator();
+          const vib = audioCtx.createOscillator();
+          const vibGain = audioCtx.createGain();
+          const filter = audioCtx.createBiquadFilter();
           const gain = audioCtx.createGain();
 
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(freq, now);
+          osc1.type = 'sine';
+          osc1.frequency.setValueAtTime(freq, startTime);
+          osc2.type = 'triangle';
+          osc2.frequency.setValueAtTime(freq * 2, startTime);
 
-          gain.gain.setValueAtTime(0.0001, now);
-          gain.gain.exponentialRampToValueAtTime(0.035, now + 0.08);
-          gain.gain.exponentialRampToValueAtTime(0.0001, now + durationSec);
+          // Gentle bansuri vibrato
+          vib.type = 'sine';
+          vib.frequency.setValueAtTime(4.8, startTime);
+          vibGain.gain.setValueAtTime(freq * 0.008, startTime);
+          vib.connect(vibGain);
+          vibGain.connect(osc1.frequency);
+
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(1600, startTime);
+
+          const harmonicGain = audioCtx.createGain();
+          harmonicGain.gain.setValueAtTime(0.12, startTime);
+
+          gain.gain.setValueAtTime(0.0001, startTime);
+          gain.gain.linearRampToValueAtTime(0.085, startTime + Math.min(0.09, durationSec * 0.25));
+          gain.gain.setValueAtTime(0.075, startTime + Math.max(0.1, durationSec - 0.12));
+          gain.gain.exponentialRampToValueAtTime(0.0001, startTime + durationSec + 0.08);
+
+          osc1.connect(filter);
+          osc2.connect(harmonicGain);
+          harmonicGain.connect(filter);
+          filter.connect(gain);
+          gain.connect(audioCtx.destination);
+
+          osc1.start(startTime);
+          osc2.start(startTime);
+          vib.start(startTime);
+          const stopAt = startTime + durationSec + 0.1;
+          osc1.stop(stopAt);
+          osc2.stop(stopAt);
+          vib.stop(stopAt);
+          activeNodes.push(osc1, osc2, vib);
+        } catch (e) {}
+      }
+
+      function playPluckNote(freq, startTime, durationSec) {
+        if (!audioCtx || !soundEnabled) return;
+        try {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, startTime);
+
+          gain.gain.setValueAtTime(0.0001, startTime);
+          gain.gain.linearRampToValueAtTime(0.028, startTime + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, startTime + durationSec);
 
           osc.connect(gain);
           gain.connect(audioCtx.destination);
 
-          osc.start(now);
-          osc.stop(now + durationSec + 0.05);
-        } catch (e) {
-          // Ignore audio context state errors
-        }
+          osc.start(startTime);
+          osc.stop(startTime + durationSec + 0.05);
+          activeNodes.push(osc);
+        } catch (e) {}
       }
 
-      function triggerRoyalArpeggio() {
-        if (!soundEnabled) return;
-        const baseIdx = Math.floor(Math.random() * 4);
-        playGentleChime(royalNotes[baseIdx], 0, 2.4);
-        playGentleChime(royalNotes[baseIdx + 2], 0.35, 2.6);
-        playGentleChime(royalNotes[baseIdx + 4], 0.7, 3.0);
+      function scheduleJashnLoop(gen) {
+        if (!audioCtx || !soundEnabled || gen !== loopGeneration) return;
+        // Prune finished nodes list periodically
+        if (activeNodes.length > 250) activeNodes = activeNodes.slice(-80);
+
+        const baseTime = audioCtx.currentTime + 0.08;
+        let offset = 0;
+
+        for (let i = 0; i < jashnMelody.length; i++) {
+          const noteName = jashnMelody[i][0];
+          const durBeats = jashnMelody[i][1];
+          const durSec = durBeats * BEAT;
+          const freq = NOTE_FREQ[noteName];
+          if (freq) {
+            playFluteNote(freq, baseTime + offset, durSec * 0.94);
+          }
+          offset += durSec;
+        }
+
+        // Schedule gentle sitar/harp chord arpeggios underneath
+        const totalDur = offset;
+        const barDur = BEAT * 4;
+        const numBars = Math.floor(totalDur / barDur);
+        for (let b = 0; b < numBars; b++) {
+          const chord = chordProg[b % chordProg.length];
+          const barStart = baseTime + b * barDur;
+          playPluckNote(NOTE_FREQ['A2'], barStart, barDur * 0.9);
+          chord.forEach(function (cn, idx) {
+            playPluckNote(NOTE_FREQ[cn], barStart + idx * (BEAT * 0.85), BEAT * 2.2);
+          });
+        }
+
+        if (melodyTimer) clearTimeout(melodyTimer);
+        melodyTimer = setTimeout(function () {
+          scheduleJashnLoop(gen);
+        }, Math.max(1000, (totalDur - 0.15) * 1000));
       }
 
       function setSoundState(enable) {
         soundEnabled = enable;
+        loopGeneration += 1;
+        if (melodyTimer) {
+          clearTimeout(melodyTimer);
+          melodyTimer = null;
+        }
         if (soundEnabled) {
           if (!audioCtx) {
             const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -1304,18 +1428,13 @@
           }
           soundIconOff.classList.add('hidden');
           soundIconOn.classList.remove('hidden');
-          if (soundStatusLabel) soundStatusLabel.textContent = 'Chimes On';
-          triggerRoyalArpeggio();
-          if (chimeInterval) clearInterval(chimeInterval);
-          chimeInterval = setInterval(triggerRoyalArpeggio, 5500);
+          if (soundStatusLabel) soundStatusLabel.textContent = 'Music On';
+          scheduleJashnLoop(loopGeneration);
         } else {
+          stopAllAudioNodes();
           soundIconOff.classList.remove('hidden');
           soundIconOn.classList.add('hidden');
-          if (soundStatusLabel) soundStatusLabel.textContent = 'Chimes Off';
-          if (chimeInterval) {
-            clearInterval(chimeInterval);
-            chimeInterval = null;
-          }
+          if (soundStatusLabel) soundStatusLabel.textContent = 'Music Off';
         }
       }
 
